@@ -45,6 +45,12 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  Future<void> updateNote(Map<String, dynamic> updatedNote, String id) =>
+      FirebaseFirestore.instance
+          .collection('notes')
+          .doc(id)
+          .update(updatedNote);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,6 +90,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                   id: note.id,
                                   title: note.data()["title"],
                                   body: note.data()["body"],
+                                  updateNote: updateNote,
                                 ),
                               ),
                             ),
@@ -117,8 +124,10 @@ class EditNotePage extends StatefulWidget {
   final Future<DocumentReference> futureId;
   final String title;
   final String body;
+  final Function(Map<String, dynamic>, String) updateNote;
 
-  const EditNotePage({Key key, this.id, this.title, this.body, this.futureId})
+  const EditNotePage(
+      {Key key, this.id, this.title, this.body, this.futureId, this.updateNote})
       : super(key: key);
 
   @override
@@ -134,11 +143,8 @@ class _EditNotePageState extends State<EditNotePage> {
   final _updateNoteController = StreamController();
   final _loadingController = StreamController<bool>();
 
-  _updateNote() async =>
-      FirebaseFirestore.instance.collection('notes').doc(_id).update({
-        "title": _titleController.text,
-        "body": _bodyController.text,
-      });
+  Map<String, dynamic> get currentNote =>
+      {"title": _titleController.text, "body": _bodyController.text};
 
   @override
   void initState() {
@@ -146,10 +152,10 @@ class _EditNotePageState extends State<EditNotePage> {
     _bodyController = TextEditingController(text: widget.body);
 
     _noteSub = _updateNoteController.stream
-        .debounceTime(Duration(seconds: 3))
+        .debounceTime(Duration(seconds: 1))
         .listen((updatedNote) async {
       _loadingController.add(true);
-      await _updateNote();
+      await widget.updateNote(currentNote, _id);
       _loadingController.add(false);
     });
 
@@ -158,6 +164,7 @@ class _EditNotePageState extends State<EditNotePage> {
     } else {
       _id = widget.id;
     }
+    print(widget.updateNote);
 
     super.initState();
   }
@@ -169,6 +176,7 @@ class _EditNotePageState extends State<EditNotePage> {
     _updateNoteController.close();
     _loadingController.close();
     _noteSub.cancel();
+    widget.updateNote(currentNote, _id);
     super.dispose();
   }
 
